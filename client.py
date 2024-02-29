@@ -1,19 +1,54 @@
 import socket
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes
 
-host = '127.0.0.1'
-port = 50001
+def run_client():
+    host = '127.0.0.1'
+    port = 50001
 
+    # Generate RSA key pair
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+    public_key = private_key.public_key()
 
-client_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-client_socket.connect((host,port))
+    # Serialize the public key
+    serialized_public_key = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
 
+    with socket.create_connection((host, port)) as sock:
+        # Send the public key to the server
+        sock.send(serialized_public_key)
 
-message = input(">> ")
+        # Receive the server's public key
+        server_public_key = sock.recv(1024)
+        server_public_key = serialization.load_pem_public_key(
+            server_public_key,
+            backend=default_backend()
+        )
 
+        message = input(">> ")
+        while message.lower().strip() != "quit":
+            # Encrypt the message with server's public key
+            encrypted_message = server_public_key.encrypt(
+                message.encode(),
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            sock.send(encrypted_message)
 
-while message.lower().strip()!="quit":
-    client_socket.send(message.encode())
-    data = client_socket.recv(1024).decode()
-    print("Response from Server : "+str(data))
-    message = input(">> ")
-client_socket.close() 
+            data = sock.recv(1024)
+            print("Response from Server : " + data.decode())
+            message = input(">> ")
+
+if __name__ == "__main__":
+    run_client()
