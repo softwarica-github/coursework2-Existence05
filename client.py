@@ -33,8 +33,12 @@ def run_client():
             backend=default_backend()
         )
 
-        message = input(">> ")
-        while message.lower().strip() != "quit":
+        while True:
+            # Input message to send to the server
+            message = input(">> ")
+            if message.lower().strip() == "quit":
+                break
+
             # Encrypt the message with server's public key
             encrypted_message = server_public_key.encrypt(
                 message.encode(),
@@ -46,9 +50,9 @@ def run_client():
             )
             sock.send(encrypted_message)
 
+            # Receive response from the server
             data = sock.recv(1024)
             print("Response from Server : " + data.decode())
-            message = input(">> ")
 
 if __name__ == "__main__":
     run_client()
