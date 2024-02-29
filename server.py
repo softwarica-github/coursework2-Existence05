@@ -1,6 +1,7 @@
 import unittest
 import threading
 import socket
+import tkinter as tk
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -62,10 +63,6 @@ class TestServer(unittest.TestCase):
         self.server_thread = threading.Thread(target=run_server)
         self.server_thread.start()
 
-    # Commenting out tearDown to prevent joining the server thread
-    # def tearDown(self):
-    #     self.server_thread.join()
-
     def test_server_connection(self):
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect(('127.0.0.1', 50001))
@@ -94,11 +91,14 @@ def run_client():
             backend=default_backend()
         )
 
-        while True:
-            message = input(">> ")
-            if message.lower().strip() == "quit":
-                break
+        root = tk.Tk()
+        root.title("Client")
+        root.geometry("400x300")
 
+        def send_message(event=None):
+            message = entry.get()
+            if message.lower().strip() == "quit":
+                root.quit()
             encrypted_message = server_public_key.encrypt(
                 message.encode(),
                 padding.OAEP(
@@ -108,18 +108,37 @@ def run_client():
                 )
             )
             sock.send(encrypted_message)
-
             data = sock.recv(1024)
-            print("Response from Server:", data.decode())
+            text.insert(tk.END, "Response from Server: " + data.decode() + "\n")
+            entry.delete(0, tk.END)
+
+        entry = tk.Entry(root, font=("Arial", 12))
+        entry.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+        entry.bind("<Return>", send_message)
+        entry.focus_set()
+
+        send_button = tk.Button(root, text="Send", command=send_message, font=("Arial", 12))
+        send_button.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+
+        text = tk.Text(root, wrap="word", font=("Arial", 12))
+        text.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+
+        def close():
+            root.destroy()
+
+        close_button = tk.Button(root, text="Close", command=close, font=("Arial", 12))
+        close_button.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+
+        # Configure grid weights for text widget to expand
+        root.grid_rowconfigure(2, weight=1)
+        root.grid_columnconfigure(0, weight=1)
+
+        root.mainloop()
 
 class TestClient(unittest.TestCase):
     def setUp(self):
         self.client_thread = threading.Thread(target=run_client)
         self.client_thread.start()
-
-    # Commenting out tearDown to prevent joining the client thread
-    # def tearDown(self):
-    #     self.client_thread.join()
 
     def test_client_connection(self):
         # Just testing that the client thread starts without exceptions
