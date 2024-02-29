@@ -39,6 +39,7 @@ def run_server():
         with conn:
             print("Connected from: " + str(addr))
             while True:
+                # Receive data from the client
                 data = conn.recv(1024)
                 if not data:
                     break
@@ -54,7 +55,8 @@ def run_server():
                 )
                 print("Received from Client:", decrypted_data.decode())
 
-                response_data = "Message Received"
+                # Send response to the client
+                response_data = input(">> ")
                 conn.send(response_data.encode())
 
 if __name__ == "__main__":
