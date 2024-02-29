@@ -24,6 +24,13 @@ def run_server():
     while True:
         conn, addr = server_socket.accept()
 
+        # Wait for the handshake signal from the client
+        handshake_signal = conn.recv(1024)
+        if handshake_signal != b"Ready":
+            conn.close()
+            continue
+
+        # If handshake successful, proceed with communication
         serialized_server_public_key = private_key.public_key().public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -55,13 +62,21 @@ class TestServer(unittest.TestCase):
         self.server_thread = threading.Thread(target=run_server)
         self.server_thread.start()
 
-    def tearDown(self):
-        self.server_thread.join()
+    # Commenting out tearDown to prevent joining the server thread
+    # def tearDown(self):
+    #     self.server_thread.join()
 
     def test_server_connection(self):
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect(('127.0.0.1', 50001))
-        self.assertTrue(client_socket)
+
+        # Send a handshake signal to the server
+        client_socket.send(b"Ready")
+
+        # Wait for the server response (public key)
+        server_public_key_data = client_socket.recv(1024)
+        self.assertTrue(server_public_key_data)
+
         client_socket.close()
 
 def run_client():
@@ -69,6 +84,10 @@ def run_client():
     port = 50001
 
     with socket.create_connection((host, port)) as sock:
+        # Send a handshake signal to the server
+        sock.send(b"Ready")
+
+        # Wait for the server response (public key)
         server_public_key_data = sock.recv(1024)
         server_public_key = serialization.load_pem_public_key(
             server_public_key_data,
@@ -98,8 +117,9 @@ class TestClient(unittest.TestCase):
         self.client_thread = threading.Thread(target=run_client)
         self.client_thread.start()
 
-    def tearDown(self):
-        self.client_thread.join()
+    # Commenting out tearDown to prevent joining the client thread
+    # def tearDown(self):
+    #     self.client_thread.join()
 
     def test_client_connection(self):
         # Just testing that the client thread starts without exceptions
